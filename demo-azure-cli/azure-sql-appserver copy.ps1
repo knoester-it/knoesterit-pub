@@ -28,15 +28,17 @@ Changes after review:
 Websites used:
 https://docs.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-cli
 
+TODO
+CHECK opening and closing of 120
 
 #>
 $random = Get-Random -Minimum 100 -Maximum 200
 $random_priority_deny = Get-Random -Minimum 400 -Maximum 500
 $random_priority_allow = Get-Random -Minimum 300 -Maximum 399
-$app_name = "demo"
+$app_name = "demo1"
 $env = "pr" # Environment : np = non-production, pr = production
 $zone_sql = "backend-subnet" # Azure SQL network location
-$public_access = "true" # Allow public access : true or false
+$public_access = "false" # Allow public access : true or false
 $vmpublic_ip = "true" # Assign public ip : true or false
 $prefix = "$env-az-sql" # Production example = pr-az-sql
 $resourceGroup = "$env-$app_name"
@@ -48,13 +50,13 @@ $myadminpassword = az keyvault secret show --name "SQL-admin" --vault-name "kv-4
 $aad_admins = "HelpdeskAgents"
 $connection_policy = "Redirect"
 $db_name = "$env-$app_name"
-$appservers = "$app_name-01" #,"$app_name-02"
+$appservers = "$env-$app_name-01" #,"$app_name-02"
 $zone_appservers = "frontend-subnet" # Appserver network location : frontend, backend
 $az_files = "Yes"
 $az_files_quota = "10" # if $az_files = "Yes"; you can manage the quota
 $rg_vnet = "demo-vnet-rg" #vnet can be in other resource group; if so specify otherwise : $resourceGroup
 $vnetname = "demo-vNet"
-$available_zones = "frontend-subnet","backend-subnet" # >>>> Moet aangepast worden voor NSG
+$available_zones = "nsg-frontend","nsg-backend" # >>>> Moet aangepast worden voor NSG
 $private_dns_zone = "privatelink.database.windows.net"
 
 # Connect-Azuread before running this script (this is for mappaing AzureAD admins to SQL)
@@ -133,7 +135,7 @@ else
 ## With disabled public access to server
 if($public_access -eq "false" )
 {
-   ## Create Azure private dns zone for private link
+## CHECK   ## Create Azure private dns zone for private link
    $privatednsexist = Get-AzPrivateDnsZone -ResourceGroupName $rg_vnet
    if($privatednsexist.name -eq "privatelink.database.windows.net" )
    {
@@ -166,7 +168,7 @@ if($public_access -eq "false" )
    }
    ## Disable puclic network access
    az sql server update -g $resourceGroup -n $sql_server --enable-public-network false
-   ## Create DNS registration of private endpoint
+## CHECK   ## Create DNS registration of private endpoint
    New-AzPrivateDnsRecordSet -Name $sql_server -RecordType A -ZoneName $private_dns_zone -ResourceGroupName $rg_vnet -Ttl 10 -PrivateDnsRecords (New-AzPrivateDnsRecordConfig -IPv4Address $ip_privateEndpoint.IpConfigurations.PrivateIpAddress)
    
    ## NSG Allow rule for appserver(s) to allow SQL traffic
