@@ -34,14 +34,13 @@ TODO
 #>
 $random = Get-Random -Minimum 100 -Maximum 200
 $random_priority_deny = Get-Random -Minimum 400 -Maximum 500
-#$random_priority_allow = Get-Random -Minimum 300 -Maximum 399
 $app_name = "bla"
 $env = "pr" # Environment : np = non-production, pr = production
 $zone_sql = "backend-subnet" # Azure SQL network location
 $public_access = "false" # Allow public access : true or false
 $vmpublic_ip = "true" # Assign public ip : true or false
 $resourceGroup = "$env-$app_name-rg"
-$sql_server = "sql-$random-$env"
+$sql_server = "sql-$app_name-$random-$env"
 $location = "East US"
 $subscription = az account show --query id -o tsv
 $myadminuser = "adminfor-sql"
