@@ -42,7 +42,7 @@ $prefix = "$env-az-sql-$zone_sql" # Production example = pr-az-sql-backend
 $resourceGroup = "$env-$app_name"
 $sql_server = "$prefix-$random"
 $location = "East US"
-$subscription = az keyvault secret show --name "Knoester-IT-sub" --vault-name "kv-4test" --query value -o tsv
+$subscription = az account show --query id -o tsv
 $myadminuser = "adminfor-az-sql_$zone_sql"
 $myadminpassword = az keyvault secret show --name "SQL-admin" --vault-name "kv-4test" --query value -o tsv
 $aad_admins = "HelpdeskAgents"
