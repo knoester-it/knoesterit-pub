@@ -35,22 +35,21 @@ CHECK opening and closing of 120
 $random = Get-Random -Minimum 100 -Maximum 200
 $random_priority_deny = Get-Random -Minimum 400 -Maximum 500
 $random_priority_allow = Get-Random -Minimum 300 -Maximum 399
-$app_name = "demo1"
+$app_name = "xyz"
 $env = "pr" # Environment : np = non-production, pr = production
 $zone_sql = "backend-subnet" # Azure SQL network location
 $public_access = "false" # Allow public access : true or false
 $vmpublic_ip = "true" # Assign public ip : true or false
-$prefix = "$env-az-sql" # Production example = pr-az-sql
 $resourceGroup = "$env-$app_name"
-$sql_server = "$prefix-$random"
+$sql_server = "sql-$random-$env"
 $location = "East US"
 $subscription = az account show --query id -o tsv
-$myadminuser = "adminfor-az-sql"
+$myadminuser = "adminfor-sql"
 $myadminpassword = az keyvault secret show --name "SQL-admin" --vault-name "kv-4test" --query value -o tsv
 $aad_admins = "HelpdeskAgents"
 $connection_policy = "Redirect"
-$db_name = "$env-$app_name"
-$appservers = "$env-$app_name-01" #,"$app_name-02"
+$db_name = "sqldb-$app_name-$env"
+$appservers = "vm-$app_name-01-$env","vm-$app_name-02-$env"
 $zone_appservers = "frontend-subnet" # Appserver network location : frontend, backend
 $az_files = "Yes"
 $az_files_quota = "10" # if $az_files = "Yes"; you can manage the quota
@@ -69,11 +68,9 @@ az group create -l "$location" -n $resourceGroup --tags $tag
 
 ##Create a sql server
 az sql server create -l "$location" -g $resourceGroup -n $sql_server  -u $myadminuser -p $myadminpassword --minimal-tls-version 1.2 --subscription $subscription
-
 ## Add AAD admin on Azure SQL server
 $group_id = Get-AzureADGroup -SearchString $aad_admins | Select ObjectID -ExpandProperty ObjectID
 az sql server ad-admin create -u $aad_admins -i $group_id -g $resourceGroup -s $sql_server --subscription $subscription
-
 ## Set Azure SQL Server connection policy
 az sql server conn-policy update -g $resourceGroup -s $sql_server --connection-type $connection_policy --subscription $subscription
 #END Create Azure SQL server
@@ -89,13 +86,13 @@ Foreach ($appserver in $appservers)
 #Standard SKU for prod and basic for non-prod  
    if($env -eq "np" )
    {
-   az network public-ip create -g $resourceGroup -n $appserver --allocation-method Static --sku Basic      
+   az network public-ip create -g $resourceGroup -n "pip-$appserver" --allocation-method Static --sku Basic      
    }
    else 
    {
-   az network public-ip create -g $resourceGroup -n $appserver --allocation-method Static --sku Standard
+   az network public-ip create -g $resourceGroup -n "pip-$appserver" --allocation-method Static --sku Standard
    }
-   az network nic create -g $resourceGroup --subnet $subnet.id -n "$appserver" --public-ip-address $appserver
+   az network nic create -g $resourceGroup --subnet $subnet.id -n "$appserver" --public-ip-address "pip-$appserver"
    az vm create -g "$resourceGroup" --name "$appserver" --image "win2019datacenter" --size Standard_B2s --admin-username "$myadminuser" --admin-password "$myadminpassword" --nics "$appserver"
 }
 }
@@ -152,7 +149,7 @@ if($public_access -eq "false" )
    $sqlserver_id = Get-AzureRmSqlServer -ResourceGroupName $resourceGroup -server $sql_server
    az network private-endpoint create --name $env-$app_name-SQL --resource-group $resourceGroup --group-id sqlServer --subnet $subnet_sql.id --private-connection-resource-id $sqlserver_id.ResourceId --connection-name $env-$app_name-SQL
    ## Create private-dns-link
-   az network private-dns link vnet create --name $vnet.name --registration-enabled true --resource-group $rg_vnet --subscription 0152f600-3b1c-4860-a657-3396f0a37ffc --virtual-network $vnet.id --zone-name $private_dns_zone
+   az network private-dns link vnet create --name $vnet.name --registration-enabled true --resource-group $rg_vnet --subscription $subscription --virtual-network $vnet.id --zone-name $private_dns_zone
       
    ## Create outbound NSG rules
    ## Define private endpoint variables 
@@ -172,21 +169,37 @@ if($public_access -eq "false" )
    New-AzPrivateDnsRecordSet -Name $sql_server -RecordType A -ZoneName $private_dns_zone -ResourceGroupName $rg_vnet -Ttl 10 -PrivateDnsRecords (New-AzPrivateDnsRecordConfig -IPv4Address $ip_privateEndpoint.IpConfigurations.PrivateIpAddress)
    
    ## NSG Allow rule for appserver(s) to allow SQL traffic
+   Foreach ($appserver in $appservers)
+   {
+      $ip = Get-AzNetworkInterface -ResourceGroupName "$resourceGroup" -name $appserver    
+      Get-AzNetworkSecurityGroup -Name "nsg-frontend" -ResourceGroupName "$rg_vnet" |
+      Add-AzNetworkSecurityRuleConfig -Name "Allow_to_$sql_server" -Description "Allow_to_$sql_server" -Access "Allow" -Protocol "*" -Direction "Outbound" -Priority "$random_priority_allow" -SourceAddressPrefix $ip.IpConfigurations.PrivateIpAddress -SourcePortRange "*" -DestinationAddressPrefix  $ip_privateEndpoint.IpConfigurations.PrivateIpAddress -DestinationPortRange "1433" |
+      Set-AzNetworkSecurityGroup
+   }
+
+<## CHECK Add source
    Get-AzNetworkSecurityGroup -Name "nsg-frontend" -ResourceGroupName "$rg_vnet" |
    Add-AzNetworkSecurityRuleConfig -Name "Allow_to_$sql_server" -Description "Allow_to_$sql_server" -Access "Allow" -Protocol "*" -Direction "Outbound" -Priority "$random_priority_allow" -SourceAddressPrefix "*" -SourcePortRange "*" -DestinationAddressPrefix  $ip_privateEndpoint.IpConfigurations.PrivateIpAddress -DestinationPortRange "1433" |
    Set-AzNetworkSecurityGroup
+   #>
 }
-   #END Setup Connectivity
+else 
+{
+## with enabled public access to server
+   write-host("Public access already set")
+}
+
+#END Setup Connectivity
 
 # START Create storage 
 # For SQL migration path
-az storage account create --name "$app_name$random".ToLower() --resource-group $resourceGroup --location "$location" --sku Standard_RAGRS --kind StorageV2
-az storage container create --account-name "$app_name$random".ToLower() --name "sqlmigrate$app_name".ToLower()
+az storage account create --name "st$app_name$random".ToLower() --resource-group $resourceGroup --location "$location" --sku Standard_RAGRS --kind StorageV2
+az storage container create --account-name "st$app_name$random".ToLower() --name "sqlmigrate$app_name".ToLower()
 
 # For Azure files share
 If ("$az_files" -eq "Yes") 
 {
-   az storage share-rm create --resource-group $resourceGroup --storage-account "$app_name$random".ToLower() --name "$app_name$random".ToLower() --quota $az_files_quota
+   az storage share-rm create --resource-group $resourceGroup --storage-account "st$app_name$random".ToLower() --name "fs$app_name$random".ToLower() --quota $az_files_quota
 }
 else 
 {

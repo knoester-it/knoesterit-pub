@@ -148,7 +148,7 @@ if($public_access -eq "false" )
    $sqlserver_id = Get-AzureRmSqlServer -ResourceGroupName $resourceGroup -server $sql_server
    az network private-endpoint create --name $env-$app_name-SQL --resource-group $resourceGroup --group-id sqlServer --subnet $subnet_sql.id --private-connection-resource-id $sqlserver_id.ResourceId --connection-name $env-$app_name-SQL
    ## Create private-dns-link
-   az network private-dns link vnet create --name $vnet.name --registration-enabled true --resource-group $rg_vnet --subscription 0152f600-3b1c-4860-a657-3396f0a37ffc --virtual-network $vnet.id --zone-name $private_dns_zone
+   az network private-dns link vnet create --name $vnet.name --registration-enabled true --resource-group $rg_vnet --subscription $subscription --virtual-network $vnet.id --zone-name $private_dns_zone
       
    ## Create outbound NSG rules
    ## Define private endpoint variables 
