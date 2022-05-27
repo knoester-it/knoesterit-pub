@@ -27,20 +27,20 @@ Changes after review:
 
 Websites used:
 https://docs.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-cli
+https://docs.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/resource-naming
 
 TODO
-CHECK opening and closing of 120
 
 #>
 $random = Get-Random -Minimum 100 -Maximum 200
 $random_priority_deny = Get-Random -Minimum 400 -Maximum 500
-$random_priority_allow = Get-Random -Minimum 300 -Maximum 399
-$app_name = "xyz"
+#$random_priority_allow = Get-Random -Minimum 300 -Maximum 399
+$app_name = "bla"
 $env = "pr" # Environment : np = non-production, pr = production
 $zone_sql = "backend-subnet" # Azure SQL network location
 $public_access = "false" # Allow public access : true or false
 $vmpublic_ip = "true" # Assign public ip : true or false
-$resourceGroup = "$env-$app_name"
+$resourceGroup = "$env-$app_name-rg"
 $sql_server = "sql-$random-$env"
 $location = "East US"
 $subscription = az account show --query id -o tsv
@@ -55,7 +55,7 @@ $az_files = "Yes"
 $az_files_quota = "10" # if $az_files = "Yes"; you can manage the quota
 $rg_vnet = "demo-vnet-rg" #vnet can be in other resource group; if so specify otherwise : $resourceGroup
 $vnetname = "demo-vNet"
-$available_zones = "nsg-frontend","nsg-backend" # >>>> Moet aangepast worden voor NSG
+$available_zones = "nsg-frontend","nsg-backend" # >>>> Moet aangepast worden voor NSG en $env toevoegen
 $private_dns_zone = "privatelink.database.windows.net"
 
 # Connect-Azuread before running this script (this is for mappaing AzureAD admins to SQL)
@@ -140,7 +140,7 @@ if($public_access -eq "false" )
    }
    else 
    {
-      write-host("No rules applicable with public access disabled")New-AzPrivateDnsZone -Name $private_dns_zone -ResourceGroupName $rg_vnet # https://docs.microsoft.com/en-us/azure/dns/private-dns-getstarted-powershell}
+      New-AzPrivateDnsZone -Name $private_dns_zone -ResourceGroupName $rg_vnet # https://docs.microsoft.com/en-us/azure/dns/private-dns-getstarted-powershell}
    }
    ## Create Azure SQL server private link
    az network vnet subnet update --name $zone_sql --resource-group $rg_vnet --vnet-name $vnetname --disable-private-endpoint-network-policies true # https://docs.microsoft.com/en-us/azure/private-link/disable-private-endpoint-network-policy
@@ -171,9 +171,10 @@ if($public_access -eq "false" )
    ## NSG Allow rule for appserver(s) to allow SQL traffic
    Foreach ($appserver in $appservers)
    {
-      $ip = Get-AzNetworkInterface -ResourceGroupName "$resourceGroup" -name $appserver    
+      $random_priority_allow = Get-Random -Minimum 300 -Maximum 399
+      $ip = Get-AzNetworkInterface -ResourceGroupName "$resourceGroup" -name $appserver
       Get-AzNetworkSecurityGroup -Name "nsg-frontend" -ResourceGroupName "$rg_vnet" |
-      Add-AzNetworkSecurityRuleConfig -Name "Allow_to_$sql_server" -Description "Allow_to_$sql_server" -Access "Allow" -Protocol "*" -Direction "Outbound" -Priority "$random_priority_allow" -SourceAddressPrefix $ip.IpConfigurations.PrivateIpAddress -SourcePortRange "*" -DestinationAddressPrefix  $ip_privateEndpoint.IpConfigurations.PrivateIpAddress -DestinationPortRange "1433" |
+      Add-AzNetworkSecurityRuleConfig -Name "Allow_$appserver" -Description "Allow_to_$sql_server from $appserver" -Access "Allow" -Protocol "*" -Direction "Outbound" -Priority "$random_priority_allow" -SourceAddressPrefix $ip.IpConfigurations.PrivateIpAddress -SourcePortRange "*" -DestinationAddressPrefix  $ip_privateEndpoint.IpConfigurations.PrivateIpAddress -DestinationPortRange "1433" |
       Set-AzNetworkSecurityGroup
    }
 
