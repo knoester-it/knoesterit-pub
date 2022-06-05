@@ -36,10 +36,10 @@ $random = Get-Random -Minimum 100 -Maximum 200
 $random_priority_deny = Get-Random -Minimum 400 -Maximum 500
 $app_name = "bla"
 $env = "pr" # Environment : np = non-production, pr = production
-$zone_sql = "backend-subnet" # Azure SQL network location
+$zone_sql = "snet-backend" # Azure SQL network location
 $public_access = "false" # Allow public access : true or false
 $vmpublic_ip = "true" # Assign public ip : true or false
-$resourceGroup = "$env-$app_name-rg"
+$resourceGroup = "rg-$env-$app_name"
 $sql_server = "sql-$app_name-$random-$env"
 $location = "East US"
 $subscription = az account show --query id -o tsv
@@ -49,11 +49,11 @@ $aad_admins = "HelpdeskAgents"
 $connection_policy = "Redirect"
 $db_name = "sqldb-$app_name-$env"
 $appservers = "vm-$app_name-01-$env","vm-$app_name-02-$env"
-$zone_appservers = "frontend-subnet" # Appserver network location : frontend, backend
+$zone_appservers = "snet-frontend" # Appserver network location : frontend, backend
 $az_files = "Yes"
 $az_files_quota = "10" # if $az_files = "Yes"; you can manage the quota
-$rg_vnet = "demo-vnet-rg" #vnet can be in other resource group; if so specify otherwise : $resourceGroup
-$vnetname = "demo-vNet"
+$rg_vnet = "rg-vnet-spoke-001" #vnet can be in other resource group; if so specify otherwise : $resourceGroup
+$vnetname = "vNet-spoke-001"
 $available_zones = "nsg-frontend","nsg-backend" # >>>> Moet aangepast worden voor NSG en $env toevoegen
 $private_dns_zone = "privatelink.database.windows.net"
 
